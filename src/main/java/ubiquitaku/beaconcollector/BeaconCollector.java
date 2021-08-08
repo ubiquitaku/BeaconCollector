@@ -9,8 +9,10 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -22,7 +24,7 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
     String prefix = "§l[BeaconCollector]§r ";
     FileConfiguration config;
     Map<String,UUID> map = new HashMap<>();
-    Map<String,Integer> owners = new HashMap<>();
+    Map<UUID,Integer> owners = new HashMap<>();
     boolean ret;
 
     @Override
@@ -44,6 +46,13 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (command.getName().equals("bcol")) {
+            if (args.length == 0) {
+                sender.sendMessage(prefix+"--------------------------------");
+                sender.sendMessage("/bcol get : ベーコンの回収をします");
+                sender.sendMessage("/bcol save : かわいそうなベーコンをほぞんします(debug)");
+                sender.sendMessage(prefix+"--------------------------------");
+                return true;
+            }
             if (args[0].equals("get")) {
                 if (!ret) {
                     sender.sendMessage(prefix+"返却機能は現在使用できません");
@@ -53,7 +62,7 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
                     sender.sendMessage(prefix+"あなたのベーコンは保管されていません");
                     return true;
                 }
-                if (!p.getInventory().isEmpty()) {
+                if (p.getInventory().firstEmpty() == -1) {
                     sender.sendMessage(prefix+"インベントリに空きを作ってから入力して下さい");
                     return true;
                 }
@@ -61,12 +70,39 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
                 item.setAmount(owners.get(p.getPlayer().getUniqueId()));
                 p.getInventory().addItem(item);
                 owners.remove(p.getUniqueId());
+                config.set("Beacons."+String.valueOf(p.getUniqueId()),"");
+                saveConfig();
+                sender.sendMessage(prefix+"ベーコンを回収しました");
+                return true;
+            }
+            if (args[0].equals("save")) {
+                mapSave();
+                sender.sendMessage(prefix+"保存しました");
             }
         }
         return true;
     }
 
-    //
+    @EventHandler
+    public void rightClick(PlayerInteractEvent e) {
+        if (e.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            if (e.getClickedBlock().getType() != Material.BEACON) {
+                return;
+            }
+            if (!map.containsKey(locStr(e.getClickedBlock().getLocation()))) {
+                e.getPlayer().sendMessage(prefix+"このベーコンは保護されていようなので設置しなおしてから使用してください");
+                e.setCancelled(true);
+                return;
+            }
+            if (map.get(locStr(e.getClickedBlock().getLocation())).equals(e.getPlayer().getUniqueId())) {
+                return;
+            }
+            e.setCancelled(true);
+            e.getPlayer().sendMessage(prefix+"あなたはこのベーコンの操作ができません");
+        }
+    }
+
+    //次回ログイン時に回収できるか確認、無理であればコマンドへ誘導
     @EventHandler
     public void join(PlayerJoinEvent e) {
         if (!ret) {
@@ -75,13 +111,17 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
         if (!owners.containsKey(e.getPlayer().getUniqueId())) {
             return;
         }
-        if (!e.getPlayer().getInventory().isEmpty()) {
+        if (e.getPlayer().getInventory().firstEmpty() == -1) {
             e.getPlayer().sendMessage(prefix+"インベントリに空きを作ってから/bcol getと入力してください");
             return;
         }
         ItemStack item = new ItemStack(Material.BEACON);
         item.setAmount(owners.get(e.getPlayer().getUniqueId()));
         e.getPlayer().getInventory().addItem(item);
+        owners.remove(e.getPlayer().getUniqueId());
+        config.set("Beacons."+String.valueOf(e.getPlayer().getUniqueId()),"");
+        saveConfig();
+        e.getPlayer().sendMessage(prefix+"ベーコンを回収しました");
     }
 
     //ベーコンが置かれた場所と置いたプレイヤーの情報をmapに保存
@@ -101,15 +141,12 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
             return;
         }
         if (!map.containsKey(locStr(e.getBlock().getLocation()))) {
+            e.getPlayer().sendMessage(prefix+"保護されていないようなのでこのベーコンの破壊はキャンセルされません");
             return;
         }
         if (map.get(locStr(e.getBlock().getLocation())) == e.getPlayer().getUniqueId()) {
             map.remove(locStr(e.getBlock().getLocation()));
             e.getPlayer().sendMessage(prefix+"ベーコンの回収を確認したため保護も削除します");
-            return;
-        }
-        if (map.get(locStr(e.getBlock().getLocation())) == e.getPlayer().getUniqueId()) {
-            e.getPlayer().sendMessage(prefix+"保護されていないようなのでこのベーコンの破壊はキャンセルされません");
             return;
         }
         e.setCancelled(true);
@@ -124,19 +161,24 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
         List<UUID> list = new ArrayList<>();
         for (String key : config.getConfigurationSection("Beacons").getKeys(false)) {
             if (list.contains(config.getString("Beacons."+key))) {
-                owners.put(key,owners.get(key)+1);
+                owners.put(UUID.fromString(config.getString("Beacons."+key)),owners.get(key)+1);
                 return;
             }
-            list.add(UUID.fromString(config.getString("Beacons."+key)));
-            owners.put(config.getString(key),1);
+            try {
+                list.add(UUID.fromString(config.getString("Beacons."+key)));
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+            owners.put(UUID.fromString(config.getString("Beacons."+key)),1);
         }
     }
 
     //mapの情報をconfigに保存します
     public void mapSave() {
         for (String key : map.keySet()) {
-            config.set(String.valueOf(key),map.get(key));
+            config.set("Beacons."+key,String.valueOf(map.get(key)));
         }
+        saveConfig();
     }
 
     //Location型から必要な情報だけを取り出して取り出しに対応した形にします
