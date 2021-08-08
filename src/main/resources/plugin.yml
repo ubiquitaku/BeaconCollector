@@ -1,0 +1,6 @@
+name: BeaconCollector
+version: ${project.version}
+main: ubiquitaku.beaconcollector.BeaconCollector
+api-version: 1.17
+commands:
+  bcol:

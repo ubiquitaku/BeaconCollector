@@ -1,0 +1,5 @@
+options:
+  returnPlanter: true
+  ##実装未定
+  coverBase: false
+Beacons:
