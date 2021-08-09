@@ -70,10 +70,13 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
                 ItemStack item = new ItemStack(Material.BEACON);
 //                item.setAmount(owners.get(p.getPlayer().getUniqueId()));
                 p.getInventory().addItem(item);
-                owners.remove(p.getUniqueId());
+                owners.remove(String.valueOf(p.getUniqueId()));
                 config.set("Beacons."+String.valueOf(p.getUniqueId()),"");
                 saveConfig();
                 sender.sendMessage(prefix+"ベーコンを回収しました");
+                return true;
+            }
+            if (!sender.isOp()) {
                 return true;
             }
             if (args[0].equals("save")) {
@@ -120,7 +123,7 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
         ItemStack item = new ItemStack(Material.BEACON);
 //        item.setAmount(owners.get(e.getPlayer().getUniqueId()));
         e.getPlayer().getInventory().addItem(item);
-        owners.remove(e.getPlayer().getUniqueId());
+        owners.remove(String.valueOf(e.getPlayer().getUniqueId()));
         config.set("Beacons."+String.valueOf(e.getPlayer().getUniqueId()),"");
         saveConfig();
         e.getPlayer().sendMessage(prefix+"ベーコンを回収しました");
@@ -134,7 +137,7 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
         }
         map.put(locStr(e.getBlock().getLocation()),e.getPlayer().getUniqueId());
         e.getPlayer().sendMessage(prefix+"ベーコンを保護します(できてる確証は無いけど(∀｀*ゞ)ﾃﾍｯ)");
-        e.getPlayer().sendMessage(prefix+"再起動等にも耐える保護は一人１個です");
+        e.getPlayer().sendMessage(prefix+"再起動等にも耐える保護は一人１個まで、１回の保管が保持されるのは再起動１回までです");
     }
 
     //ベーコンが破壊されたときのイベント
@@ -174,6 +177,7 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
 
     //mapの情報をconfigに保存します
     public void mapSave() {
+        config.set("Beacons",null);
         List<String> list = new ArrayList<>();
         for (String key : map.keySet()) {
             if (map.get(key) == null) continue;
