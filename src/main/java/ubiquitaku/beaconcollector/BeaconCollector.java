@@ -177,6 +177,7 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
         List<String> list = new ArrayList<>();
         for (String key : map.keySet()) {
             if (map.get(key) == null) continue;
+            if (list.contains(map.get(key))) continue;
             list.add(String.valueOf(map.get(key)));
         }
         config.set("Beacons",list);
