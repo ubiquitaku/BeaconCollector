@@ -152,6 +152,10 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
             e.getPlayer().sendMessage(prefix+"ベーコンの回収を確認したため保護も削除します");
             return;
         }
+        if (e.getPlayer().isOp()) {
+            map.remove(locStr(e.getBlock().getLocation()));
+            e.getPlayer().sendMessage(prefix+"opの力で保護ごと破壊しました");
+        }
         e.setCancelled(true);
         e.getPlayer().sendMessage(prefix+"あなたが設置したベーコンではないため破壊できません");
     }
