@@ -24,7 +24,8 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
     String prefix = "§l[BeaconCollector]§r ";
     FileConfiguration config;
     Map<String,UUID> map = new HashMap<>();
-    Map<UUID,Integer> owners = new HashMap<>();
+    List<String> owners = new ArrayList<>();
+//    Map<UUID,Integer> owners = new HashMap<>();
     boolean ret;
 
     @Override
@@ -58,7 +59,7 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
                     sender.sendMessage(prefix+"返却機能は現在使用できません");
                 }
                 Player p = (Player) sender;
-                if (!owners.containsKey(p.getUniqueId())) {
+                if (!owners.contains(String.valueOf(p.getUniqueId()))) {
                     sender.sendMessage(prefix+"あなたのベーコンは保管されていません");
                     return true;
                 }
@@ -67,7 +68,7 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
                     return true;
                 }
                 ItemStack item = new ItemStack(Material.BEACON);
-                item.setAmount(owners.get(p.getPlayer().getUniqueId()));
+//                item.setAmount(owners.get(p.getPlayer().getUniqueId()));
                 p.getInventory().addItem(item);
                 owners.remove(p.getUniqueId());
                 config.set("Beacons."+String.valueOf(p.getUniqueId()),"");
@@ -83,6 +84,7 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
         return true;
     }
 
+    //設置者以外設定いじれないように
     @EventHandler
     public void rightClick(PlayerInteractEvent e) {
         if (e.getAction() == Action.RIGHT_CLICK_BLOCK) {
@@ -108,7 +110,7 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
         if (!ret) {
             return;
         }
-        if (!owners.containsKey(e.getPlayer().getUniqueId())) {
+        if (!owners.contains(String.valueOf(e.getPlayer().getUniqueId()))) {
             return;
         }
         if (e.getPlayer().getInventory().firstEmpty() == -1) {
@@ -116,7 +118,7 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
             return;
         }
         ItemStack item = new ItemStack(Material.BEACON);
-        item.setAmount(owners.get(e.getPlayer().getUniqueId()));
+//        item.setAmount(owners.get(e.getPlayer().getUniqueId()));
         e.getPlayer().getInventory().addItem(item);
         owners.remove(e.getPlayer().getUniqueId());
         config.set("Beacons."+String.valueOf(e.getPlayer().getUniqueId()),"");
@@ -132,6 +134,7 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
         }
         map.put(locStr(e.getBlock().getLocation()),e.getPlayer().getUniqueId());
         e.getPlayer().sendMessage(prefix+"ベーコンを保護します(できてる確証は無いけど(∀｀*ゞ)ﾃﾍｯ)");
+        e.getPlayer().sendMessage(prefix+"再起動等にも耐える保護は一人１個です");
     }
 
     //ベーコンが破壊されたときのイベント
@@ -158,26 +161,21 @@ public final class BeaconCollector extends JavaPlugin implements @NotNull Listen
         if (!config.contains("Beacons")) {
             return;
         }
-        List<UUID> list = new ArrayList<>();
-        for (String key : config.getConfigurationSection("Beacons").getKeys(false)) {
-            if (list.contains(config.getString("Beacons."+key))) {
-                owners.put(UUID.fromString(config.getString("Beacons."+key)),owners.get(key)+1);
-                return;
-            }
-            try {
-                list.add(UUID.fromString(config.getString("Beacons."+key)));
-            } catch (IllegalArgumentException e) {
-                continue;
-            }
-            owners.put(UUID.fromString(config.getString("Beacons."+key)),1);
+        try {
+            owners = (List<String>) config.getList("Beacons");
+        } catch (IllegalArgumentException e) {
+            return;
         }
     }
 
     //mapの情報をconfigに保存します
     public void mapSave() {
+        List<String> list = new ArrayList<>();
         for (String key : map.keySet()) {
-            config.set("Beacons."+key,String.valueOf(map.get(key)));
+            if (map.get(key) == null) continue;
+            list.add(String.valueOf(map.get(key)));
         }
+        config.set("Beacons",list);
         saveConfig();
     }
 
